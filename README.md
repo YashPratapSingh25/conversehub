@@ -1,4 +1,4 @@
-# Speech Assessment App 🎤  
+# AI-Powered ConverseHub 🎤  
 
 ## 📌 Overview  
 The **Speech Assessment App** is an AI-powered platform designed to evaluate spoken language skills. It transcribes audio using **Whisper AI** and provides feedback on **grammar, fluency, and sentence structure** using **Gemini API**.  
