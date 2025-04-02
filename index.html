@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Audio Transcription & Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #header {
+            background: #2563eb;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #chatContainer {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            border-bottom: 2px solid #ccc;
+            background-color: #fff;
+            border-radius: 10px;
+            margin: 15px;
+        }
+
+        .message {
+            margin: 5px;
+            padding: 12px 18px;
+            border-radius: 15px;
+            color: #fff;
+            word-wrap: break-word;
+            max-width: 75%;
+        }
+        
+        .user {
+            align-self: flex-end;
+            background-color: #007bff;
+            box-shadow: 2px 2px 10px rgba(0, 123, 255, 0.3);
+        }
+        
+        .bot {
+            align-self: flex-start;
+            background-color: #28a745;
+            box-shadow: 2px 2px 10px rgba(40, 167, 69, 0.3);
+        }
+
+        #controls {
+            padding: 15px;
+            text-align: center;
+            background: #fff;
+            box-shadow: 0px -2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            background-color: #2563eb;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+            transform: scale(1.05);
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">ConverseHub: Your Soft Skill Tutor</div>
+    <div id="chatContainer"></div>
+    <div id="controls">
+        <button id="recordBtn">🎙️ Start Recording</button>
+        <button id="endChatBtn">🚀 End Chat</button>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const recordBtn = document.getElementById('recordBtn');
+        const endChatBtn = document.getElementById('endChatBtn');
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                recordBtn.innerText = '⏹️ Stop Recording';
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    audioChunks = [];
+                    recordBtn.innerText = '🎙️ Start Recording';
+                    await processAudio(audioBlob);
+                };
+
+                mediaRecorder.start();
+                recordBtn.onclick = stopRecording;
+            } catch (error) {
+                appendMessage('Bot', 'Error accessing microphone.');
+            }
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            recordBtn.onclick = startRecording;
+        }
+
+        async function processAudio(audioBlob) {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.wav');
+            appendMessage('User', 'Recording complete. Transcribing...');
+
+            try {
+                const response = await fetch('http://localhost:8000/transcribe-and-analyze/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.transcription) {
+                    appendMessage('User', result.transcription);
+                    appendMessage('Bot', result.analysis);
+                } else {
+                    appendMessage('Bot', 'Error transcribing. Try again.');
+                }
+            } catch (error) {
+                appendMessage('Bot', 'Network error. Please check your connection.');
+            }
+        }
+
+        async function endChat() {
+            appendMessage('User', 'Ending chat...');
+            try {
+                const response = await fetch('http://localhost:8000/end-chat/', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                appendMessage('Bot', result.feedback);
+            } catch (error) {
+                appendMessage('Bot', 'Error ending chat. Please try again.');
+            }
+        }
+
+        function appendMessage(sender, message) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${sender.toLowerCase()}`;
+
+    if (sender === 'Bot') {
+        console.log("Bot Message:", message); // Debugging output
+
+        // Remove ```md and ``` from message if present
+        const cleanedMessage = message.replace(/^```md\s+/, '').replace(/```$/, '');
+
+        msgDiv.innerHTML = marked.parse(cleanedMessage); 
+    } else {
+        msgDiv.textContent = `${sender}: ${message}`;
+    }
+
+    chatContainer.appendChild(msgDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+
+
+        recordBtn.onclick = startRecording;
+        endChatBtn.onclick = endChat;
+    </script>
+</body>
+</html>
